@@ -1,0 +1,33 @@
+{
+  "name": "tr_hourly_blob_copy",
+  "properties": {
+    "type": "TumblingWindowTrigger",
+    "typeProperties": {
+      "frequency": "Hour",
+      "interval": 1,
+      "startTime": "2099-01-01T00:00:00Z",
+      "delay": "00:10:00",
+      "maxConcurrency": 1,
+      "retryPolicy": {
+        "count": 0,
+        "intervalInSeconds": 120
+      }
+    },
+    "pipeline": {
+      "pipelineReference": {
+        "referenceName": "pl_hourly_blob_copy",
+        "type": "PipelineReference"
+      },
+      "parameters": {
+        "windowStart": {
+          "value": "@trigger().outputs.windowStartTime",
+          "type": "Expression"
+        },
+        "windowEnd": {
+          "value": "@trigger().outputs.windowEndTime",
+          "type": "Expression"
+        }
+      }
+    }
+  }
+}

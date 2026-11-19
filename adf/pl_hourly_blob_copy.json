@@ -1,0 +1,227 @@
+{
+  "name": "pl_hourly_blob_copy",
+  "properties": {
+    "description": "Start hourly AzCopy and wait for the Durable result before succeeding.",
+    "concurrency": 2,
+    "parameters": {
+      "windowStart": {
+        "type": "String"
+      },
+      "windowEnd": {
+        "type": "String"
+      },
+      "pollSeconds": {
+        "type": "Int",
+        "defaultValue": 30
+      },
+      "mode": {
+        "type": "String",
+        "defaultValue": "copy"
+      }
+    },
+    "variables": {
+      "copyState": {
+        "type": "String",
+        "defaultValue": "Pending"
+      },
+      "copyFailureCode": {
+        "type": "String",
+        "defaultValue": "none"
+      },
+      "copyReportBlob": {
+        "type": "String",
+        "defaultValue": "not available"
+      }
+    },
+    "activities": [
+      {
+        "name": "StartCopy",
+        "type": "AzureFunctionActivity",
+        "linkedServiceName": {
+          "referenceName": "ls_hourly_copy_function",
+          "type": "LinkedServiceReference"
+        },
+        "policy": {
+          "timeout": "00:10:00",
+          "retry": 1,
+          "retryIntervalInSeconds": 30
+        },
+        "typeProperties": {
+          "functionName": "copy-hour",
+          "method": "POST",
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "type": "Expression",
+            "value": "@json(concat('{\"windowStart\":\"',pipeline().parameters.windowStart,'\",\"windowEnd\":\"',pipeline().parameters.windowEnd,'\",\"pipelineRunId\":\"',pipeline().RunId,'\",\"mode\":\"',pipeline().parameters.mode,'\"}'))"
+          }
+        }
+      },
+      {
+        "name": "WaitForCopy",
+        "type": "Until",
+        "dependsOn": [
+          {
+            "activity": "StartCopy",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@not(contains(createArray('Pending','Running','ContinuedAsNew','NotVisible'),variables('copyState')))",
+            "type": "Expression"
+          },
+          "timeout": "03:30:00",
+          "activities": [
+            {
+              "name": "WaitBeforePoll",
+              "type": "Wait",
+              "typeProperties": {
+                "waitTimeInSeconds": {
+                  "value": "@pipeline().parameters.pollSeconds",
+                  "type": "Expression"
+                }
+              }
+            },
+            {
+              "name": "GetCopyStatus",
+              "type": "AzureFunctionActivity",
+              "linkedServiceName": {
+                "referenceName": "ls_hourly_copy_function",
+                "type": "LinkedServiceReference"
+              },
+              "dependsOn": [
+                {
+                  "activity": "WaitBeforePoll",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ],
+              "policy": {
+                "timeout": "00:10:00",
+                "retry": 2,
+                "retryIntervalInSeconds": 30
+              },
+              "typeProperties": {
+                "functionName": {
+                  "value": "@concat('copy-status/',activity('StartCopy').output.instanceId)",
+                  "type": "Expression"
+                },
+                "method": "GET"
+              }
+            },
+            {
+              "name": "RecordStatus",
+              "type": "SetVariable",
+              "dependsOn": [
+                {
+                  "activity": "GetCopyStatus",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ],
+              "typeProperties": {
+                "variableName": "copyState",
+                "value": {
+                  "value": "@activity('GetCopyStatus').output.runtimeStatus",
+                  "type": "Expression"
+                }
+              }
+            },
+            {
+              "name": "RecordPollingFailure",
+              "type": "SetVariable",
+              "dependsOn": [
+                {
+                  "activity": "GetCopyStatus",
+                  "dependencyConditions": [
+                    "Failed"
+                  ]
+                }
+              ],
+              "typeProperties": {
+                "variableName": "copyState",
+                "value": "StatusRequestFailed"
+              }
+            },
+            {
+              "name": "RecordStatusCode",
+              "type": "SetVariable",
+              "dependsOn": [
+                {
+                  "activity": "RecordStatus",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ],
+              "typeProperties": {
+                "variableName": "copyFailureCode",
+                "value": {
+                  "type": "Expression",
+                  "value": "@coalesce(activity('GetCopyStatus').output?.errorCode,'none')"
+                }
+              }
+            },
+            {
+              "name": "RecordRecoveryReport",
+              "type": "SetVariable",
+              "dependsOn": [
+                {
+                  "activity": "RecordStatusCode",
+                  "dependencyConditions": [
+                    "Succeeded"
+                  ]
+                }
+              ],
+              "typeProperties": {
+                "variableName": "copyReportBlob",
+                "value": {
+                  "value": "@coalesce(activity('GetCopyStatus').output?.recoveryReportBlob,'not available')",
+                  "type": "Expression"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "RequireCopySuccess",
+        "type": "IfCondition",
+        "dependsOn": [
+          {
+            "activity": "WaitForCopy",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@equals(variables('copyState'),'Completed')",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [],
+          "ifFalseActivities": [
+            {
+              "name": "FailCopyRun",
+              "type": "Fail",
+              "typeProperties": {
+                "errorCode": "HourlyBlobCopyFailed",
+                "message": {
+                  "type": "Expression",
+                  "value": "@concat('Copy ',activity('StartCopy').output.instanceId,' ended with status ',variables('copyState'),' (',variables('copyFailureCode'),'). Recovery report: ',variables('copyReportBlob'),'. Check Application Insights and the Durable task hub.')"
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

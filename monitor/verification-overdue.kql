@@ -1,0 +1,22 @@
+// Supply the workspace-based Application Insights resource ID and observed AppRoleName.
+// Template tokens are for the Bicep template. For an interactive run replace each
+// base64_decode_tostring('__...__') expression with a quoted literal instead.
+let ExpectedFrom = todatetime(base64_decode_tostring('__START__'));
+let FunctionRole = base64_decode_tostring('__ROLE__');
+let InsightsResourceId = base64_decode_tostring('__INSIGHTS__');
+let GraceMinutes = __GRACE__;
+let HorizonHours = __HORIZON__;
+let LastDue = bin(now() - 1h - GraceMinutes * 1m, 1h);
+let FirstDue = LastDue - (HorizonHours - 1) * 1h;
+let Verified = AppTraces
+| where TimeGenerated >= FirstDue
+| where _ResourceId =~ InsightsResourceId and AppRoleName =~ FunctionRole
+| where Message startswith_cs 'hourly_blob_copy '
+| extend d = parse_json(substring(Message, strlen('hourly_blob_copy ')))
+| where tostring(d.event) == 'copy_verified'
+| summarize by WindowStart = todatetime(d.windowStart);
+range WindowStart from FirstDue to LastDue step 1h
+| where WindowStart >= ExpectedFrom
+| join kind=leftanti (Verified) on WindowStart
+| extend DeadlineUtc = WindowStart + 1h + GraceMinutes * 1m
+| project WindowStart, DeadlineUtc

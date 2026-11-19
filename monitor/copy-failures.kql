@@ -1,0 +1,12 @@
+// Run in the Log Analytics workspace linked to Application Insights.
+let logPrefix = "hourly_blob_copy ";
+AppTraces
+| where AppRoleName =~ "REPLACE-FUNCTION-APP"
+| where Message startswith_cs logPrefix
+| extend d = parse_json(substring(Message, strlen(logPrefix)))
+| where tostring(d.event) in ("copy_failed", "start_failed", "copy_outcome_unknown", "recovery_exhausted", "recovery_record_failed", "recovery_scan_failed", "recovery_dispatch_failed", "recovery_window_failed")
+| project TimeGenerated, Event=tostring(d.event), Code=tostring(d.errorCode), RunId=tostring(d.pipelineRunId),
+          InstanceId=tostring(d.instanceId), Mode=tostring(d.mode), Attempt=toint(d.attempt),
+          WindowStart=todatetime(d.windowStart), DurationSeconds=todouble(d.durationSeconds),
+          AzCopyJobId=tostring(d.azcopyJobId), ConflictReport=tostring(d.conflictReportBlob), ExitCode=toint(d.exitCode), HttpStatus=toint(d.httpStatus),
+          ChangedFiles=toint(d.changedCount), MissingFiles=toint(d.missingCount), UnexpectedFiles=toint(d.unexpectedCount)

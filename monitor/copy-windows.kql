@@ -1,0 +1,12 @@
+let logPrefix = "hourly_blob_copy ";
+AppTraces
+| where AppRoleName =~ "REPLACE-FUNCTION-APP"
+| where Message startswith_cs logPrefix
+| extend d = parse_json(substring(Message, strlen(logPrefix)))
+| where tostring(d.event) in ("copy_finished", "copy_verified", "copy_reconciled", "copy_empty", "copy_failed", "copy_attempt_failed", "copy_conflicts")
+| project TimeGenerated, WindowStart=todatetime(d.windowStart), RunId=tostring(d.pipelineRunId),
+          Mode=tostring(d.mode), Event=tostring(d.event), Attempt=toint(d.attempt), ErrorCode=tostring(d.errorCode),
+          AzCopyJobId=tostring(d.azcopyJobId), ConflictReport=tostring(d.conflictReportBlob), Completed=tolong(d.transfersCompleted), Skipped=tolong(d.transfersSkipped),
+          Verified=tolong(d.verifiedFiles), Changed=tolong(d.changedCount), MissingBefore=tolong(d.missingBefore),
+          Bytes=tolong(d.bytesTransferred), Seconds=todouble(d.durationSeconds)
+| order by TimeGenerated desc

@@ -1,0 +1,87 @@
+{
+  "name": "pl_reconcile_hourly_blob_copy",
+  "properties": {
+    "description": "Scan recently closed UTC windows and copy only missing files.",
+    "concurrency": 1,
+    "parameters": {
+      "scheduledTime": {
+        "type": "String"
+      },
+      "firstHourOffset": {
+        "type": "Int",
+        "defaultValue": 2
+      },
+      "lookbackHours": {
+        "type": "Int",
+        "defaultValue": 3
+      }
+    },
+    "activities": [
+      {
+        "name": "ValidateLookback",
+        "type": "IfCondition",
+        "typeProperties": {
+          "expression": {
+            "type": "Expression",
+            "value": "@and(and(greaterOrEquals(pipeline().parameters.firstHourOffset,1),lessOrEquals(pipeline().parameters.firstHourOffset,168)),and(greaterOrEquals(pipeline().parameters.lookbackHours,1),lessOrEquals(pipeline().parameters.lookbackHours,24)))"
+          },
+          "ifTrueActivities": [],
+          "ifFalseActivities": [
+            {
+              "name": "FailInvalidLookback",
+              "type": "Fail",
+              "typeProperties": {
+                "errorCode": "InvalidLookback",
+                "message": "Use firstHourOffset 1\u2013168 and lookbackHours 1\u201324."
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "RecheckRecentHours",
+        "type": "ForEach",
+        "typeProperties": {
+          "items": {
+            "type": "Expression",
+            "value": "@range(pipeline().parameters.firstHourOffset,pipeline().parameters.lookbackHours)"
+          },
+          "isSequential": false,
+          "batchCount": 2,
+          "activities": [
+            {
+              "name": "ReconcileWindow",
+              "type": "ExecutePipeline",
+              "typeProperties": {
+                "pipeline": {
+                  "referenceName": "pl_hourly_blob_copy",
+                  "type": "PipelineReference"
+                },
+                "waitOnCompletion": true,
+                "parameters": {
+                  "windowStart": {
+                    "type": "Expression",
+                    "value": "@addHours(formatDateTime(pipeline().parameters.scheduledTime,'yyyy-MM-ddTHH:00:00Z'), sub(0,item()), 'yyyy-MM-ddTHH:mm:ssZ')"
+                  },
+                  "windowEnd": {
+                    "type": "Expression",
+                    "value": "@addHours(formatDateTime(pipeline().parameters.scheduledTime,'yyyy-MM-ddTHH:00:00Z'), sub(1,item()), 'yyyy-MM-ddTHH:mm:ssZ')"
+                  },
+                  "mode": "reconcile"
+                }
+              }
+            }
+          ]
+        },
+        "dependsOn": [
+          {
+            "activity": "ValidateLookback",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

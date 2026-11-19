@@ -1,0 +1,17 @@
+{
+  "name": "ls_hourly_copy_function",
+  "properties": {
+    "type": "AzureFunction",
+    "typeProperties": {
+      "functionAppUrl": "https://REPLACE-FUNCTION-APP.azurewebsites.net",
+      "functionKey": {
+        "type": "AzureKeyVaultSecret",
+        "store": {
+          "referenceName": "ls_hourly_key_vault",
+          "type": "LinkedServiceReference"
+        },
+        "secretName": "hourly-copy-adf-host-key"
+      }
+    }
+  }
+}

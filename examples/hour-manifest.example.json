@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "files": [
+    {"path": "reports/data.csv", "size": 1042},
+    {"path": "empty.dat", "size": 0, "contentMd5": "1B2M2Y8AsgTpgAmY7PhCfg=="}
+  ]
+}

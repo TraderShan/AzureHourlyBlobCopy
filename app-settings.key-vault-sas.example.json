@@ -1,0 +1,6 @@
+{
+  "COPY_AUTH_MODE": "key_vault_sas",
+  "COPY_KEY_VAULT_URL": "https://replace-vault.vault.azure.net",
+  "COPY_SOURCE_SAS_SECRET": "azcopy-source-container-sas",
+  "COPY_DEST_SAS_SECRET": "azcopy-target-container-sas"
+}

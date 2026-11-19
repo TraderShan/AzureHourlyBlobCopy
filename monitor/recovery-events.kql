@@ -1,0 +1,11 @@
+let prefix = 'hourly_blob_copy ';
+AppTraces
+| where AppRoleName =~ 'REPLACE-FUNCTION-APP'
+| where Message startswith_cs prefix
+| extend d = parse_json(substring(Message, strlen(prefix)))
+| where tostring(d.event) startswith 'recovery_' or tostring(d.event) == 'copy_outcome_unknown'
+| project TimeGenerated, Event=tostring(d.event), WindowStart=todatetime(d.windowStart),
+          OriginalRunId=coalesce(tostring(d.originalPipelineRunId), tostring(d.pipelineRunId)),
+          RecoveryAttempt=toint(d.recoveryAttempt), ErrorCode=tostring(d.errorCode),
+          AzCopyJobId=tostring(d.azcopyJobId), ReportBlob=tostring(d.recoveryReportBlob)
+| order by TimeGenerated desc

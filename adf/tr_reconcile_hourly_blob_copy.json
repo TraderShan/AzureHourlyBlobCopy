@@ -1,0 +1,30 @@
+{
+  "name": "tr_reconcile_hourly_blob_copy",
+  "properties": {
+    "type": "ScheduleTrigger",
+    "typeProperties": {
+      "recurrence": {
+        "frequency": "Hour",
+        "interval": 1,
+        "startTime": "2099-01-01T00:35:00Z",
+        "timeZone": "UTC"
+      }
+    },
+    "pipelines": [
+      {
+        "pipelineReference": {
+          "referenceName": "pl_reconcile_hourly_blob_copy",
+          "type": "PipelineReference"
+        },
+        "parameters": {
+          "scheduledTime": {
+            "type": "Expression",
+            "value": "@trigger().scheduledTime"
+          },
+          "firstHourOffset": 2,
+          "lookbackHours": 3
+        }
+      }
+    ]
+  }
+}

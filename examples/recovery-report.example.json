@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "kind": "terminal",
+  "windowStart": "2026-11-18T14:00:00Z",
+  "windowEnd": "2026-11-18T15:00:00Z",
+  "pipelineRunId": "dddddddd-bbbb-aaaa-cccc-eeeeeeeeeeee",
+  "originalPipelineRunId": "dddddddd-bbbb-aaaa-cccc-eeeeeeeeeeee",
+  "instanceId": "blobcopy-ddddddddbbbbaaaacccceeeeeeeeeeee-2026111814",
+  "mode": "copy",
+  "attempt": 3,
+  "recordedAtUtc": "2026-11-18T15:42:00+00:00",
+  "recoveryDisposition": "created",
+  "failure": {"errorCode": "azcopy_transient", "retryable": true, "azcopyJobId": "ffffffff-bbbb-aaaa-cccc-eeeeeeeeeeee", "exitCode": 1},
+  "basis": "producer_manifest",
+  "inspection": "complete",
+  "checksUnavailable": [],
+  "counts": {"missingAtDestination": 1, "conflictsAtDestination": 0, "unexpectedAtDestination": 0, "sizeOnlyMatches": 0, "missingAtSource": 0, "conflictsAtSource": 0, "unexpectedAtSource": 0, "unverified": 0},
+  "items": {"missingAtDestination": ["reports/summary.csv"], "conflictsAtDestination": [], "unexpectedAtDestination": [], "sizeOnlyMatches": [], "missingAtSource": [], "conflictsAtSource": [], "unexpectedAtSource": [], "unverified": []},
+  "truncated": false
+}
